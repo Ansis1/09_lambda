@@ -1,19 +1,20 @@
 import java.lang.IllegalArgumentException
-import java.lang.IllegalStateException
+import java.lang.NumberFormatException
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Scanner
+import kotlin.system.exitProcess
 import kotlin.text.StringBuilder
 
 fun main() {
-//TODO генерация сообщения собеседником.
-//TODO фиксация непрочитанного сообщения для собеседника.
-
     val chatSrv = ChatService
+    showGeneralInfoAndMenu(chatSrv, 1)
+}
 
-    //Первичная информация
+fun showGeneralInfoAndMenu(chatSrv: ChatService, step: Int) {
+
     println(
         "Ваши чаты: " + if (chatSrv.getUnreadCntChats() > 0) {
             " чаты с новыми сообщениями (${chatSrv.getUnreadCntChats()})"
@@ -22,39 +23,227 @@ fun main() {
         }
     )
     println(chatSrv.getChats())
+    println(chatSrv.getLastChatMessages())
 
-    //Меню
-    println("Выберите необходимое действие:")
+    showMenuAndProceedChoice(chatSrv, step)
 
-        //TODO разделить меню в зависимости от состояния (есть чаты, нет и тд)
-    println("1. новое сообщение:")
-    println("2. посмотреть N сообщений в чате.")
-    println("3. удалить чат.")
-    println("4. обновить основную информацию по чатам.")
-    println("5. сгенерировать сообщение от собеседника.")
-    println("6. завершить программу")
+}
+
+fun showMenuAndProceedChoice(chatSrv: ChatService, step: Int) {
+
+    println("\n Введите код действия и нажмите Enter:")
+
+    when (step) {
+
+        1 -> {
+
+            println("1. новое сообщение")
+            if (chatSrv.getChatListSize() > 0) {//Есть чаты
+                println("2. посмотреть N сообщений в чате.")
+                println("3. удалить чат.")
+            }
+            println("4. обновить информацию по чатам.")
+            println("6. сгенерировать сообщение от собеседника.")
+        }
+
+        2 -> {
+            println("1. новое сообщение")
+            println("2. отредактировать сообщение")
+            println("3. удалить этот чат") // вытаскиваем из перем чат и удаляем, обновл страницу
+            println("4. обновить информацию по чату.")
+            println("5. вернуться в список чатов")
+            println("8. удалить сообщение")
+        }
 
 
-    //Когда запросили п. "посмотреть N сообщений в чате"
-    println("1. Введите ID чата")
-    //Далее
-    println("1. Введите кол-во сообщений на вывод")
-    //Открыли чат
-    println("1. новое сообщение")
-    println("2. отредактировать сообщение")
-    println("3. удалить сообщение")
-    println("4. удалить этот чат")
-    println("5. вернуться в список чатов")
-    println("6. завершить программу")
+    }
+
+    println("7. завершить программу") // Всегда
 
 
-        //val scanner: Scanner = Scanner(System.`in`)
+    val scanner = Scanner(System.`in`)
+    val input = scanner.nextLine().trim()
 
+    if (input == "7") { //Обработка выбора
+        exitProcess(0)
+    } else {
+        proceedChoice(input, step, chatSrv)
+    }
+
+
+}
+
+
+fun proceedChoice(input: String, step: Int, chatSrv: ChatService) {
+
+    val scanner = Scanner(System.`in`)
+    when (input) {
+
+        "1" -> {
+
+            if (step != 2) {
+                chatSrv.currChatID = getChatIdFromUser(scanner, input, step, chatSrv)
+                val txtMsg = getMessageTextFromUser(scanner)
+                chatSrv.createMsg(chatSrv.currChatID, txtMsg, step = 2)
+
+            } else {
+                val txtMsg = getMessageTextFromUser(scanner)
+                chatSrv.createMsg(chatSrv.currChatID, txtMsg, step = 2)
+            }
+
+        }
+
+        "2" -> {
+
+            if (step != 2) {
+
+                chatSrv.currChatID = if (chatSrv.getChatListSize() == 1) {
+                    chatSrv.getLastChat()?.chatId ?: -1
+                } else {
+                    getChatIdFromUser(scanner, input, step, chatSrv)
+                }
+                println("Введите кол-во сообщений на вывод и нажмите Enter: ")
+                val inputSt = scanner.nextLine().trim()
+                try {
+
+                    val inputInt = inputSt.toInt()
+
+                    if (inputInt > 0) {
+                        chatSrv.usrLastMsgCntPar = inputInt
+                        println(chatSrv.getLastNMessagesInChat(chatSrv.currChatID, inputInt))
+                        println()
+                        showMenuAndProceedChoice(chatSrv, 2)
+                    } else {
+
+                        proceedChoice(input, step, chatSrv) //возврат на повтор.
+
+                    }
+                } catch (e: NumberFormatException) {
+
+                    println("введено некорректное значение.")
+                    proceedChoice(input, step, chatSrv) //возврат на повтор.
+
+                }
+
+
+            } else {
+
+                val inputMsgId = getMsgIdFromUser(scanner, input, step, chatSrv)
+                println("Отредактируйте текст сообщения и нажмите Enter: ")
+                val inputSt = scanner.nextLine().trim()
+                chatSrv.updateMsg(chatSrv.currChatID, inputMsgId, inputSt)
+            }
+        } // посм N сообщ в чате или change msg
+        "3" -> {
+
+            if (step != 2) {
+                val chatIdd = if (chatSrv.getChatListSize() == 1) {
+                    chatSrv.getLastChat()?.chatId ?: -1
+                } else {
+                    getChatIdFromUser(scanner, input, step, chatSrv)
+                }
+                chatSrv.deleteChat(chatIdd)
+
+            } else {
+
+                chatSrv.deleteChat(chatSrv.currChatID)
+
+            }
+
+        } // del chat or del this chat
+        "4" -> {
+
+            if (step != 2) {
+                showGeneralInfoAndMenu(chatSrv, 1)
+            } else {
+                println(chatSrv.getLastNMessagesInChat(chatSrv.currChatID, chatSrv.usrLastMsgCntPar))
+                showMenuAndProceedChoice(chatSrv, step)
+
+
+            }
+
+
+        } // upd main page / get last msges in chat
+        "5" -> {
+            chatSrv.currChatID = 0
+            showGeneralInfoAndMenu(chatSrv, 1)
+        }
+
+        "6" -> {
+
+            val chatRandom = getChatIdFromUser(scanner, input, step, chatSrv)
+            chatSrv.createMsg(chatRandom, "new message " + System.currentTimeMillis(), false, 1)
+
+        } // generate random msg from outside
+        "8" -> {
+
+            var msgId = chatSrv.getMsgIDInOnlyOneMsgChat();
+
+            if (msgId < 0) {
+                msgId = getMsgIdFromUser(scanner, input, step, chatSrv)
+            }
+            chatSrv.deleteMsg(chatSrv.currChatID, msgId, step)
+        } // delete msg
+
+    }
+}
+
+fun getMessageTextFromUser(scanner: Scanner): String {
+
+    println("Введите текст сообщения и нажмите Enter (!7 для завершения программы): ")
+    val inputSt = scanner.nextLine().trim()
+    if (inputSt == "!7") { //Обработка выбора
+        exitProcess(0)
+    }
+    return inputSt
+
+}
+
+fun getChatIdFromUser(scanner: Scanner, input: String, step: Int, chatSrv: ChatService): Long {
+
+    println("Введите id чата и нажмите Enter (!7 для завершения программы): ")
+    val inputSt = scanner.nextLine().trim()
+    if (inputSt == "!7") { //Обработка выбора
+        exitProcess(0)
+    }
+    try {
+
+        return inputSt.toLong()
+    } catch (e: NumberFormatException) {
+
+        println("введено некорректное значение.")
+        proceedChoice(input, step, chatSrv) //возврат на повтор.
+    }
+    return 0
+}
+
+fun getMsgIdFromUser(scanner: Scanner, input: String, step: Int, chatSrv: ChatService): Long {
+
+    println("Введите id сообщения и нажмите Enter (!7 для завершения программы): ")
+    val inputSt = scanner.nextLine().trim()
+    if (inputSt == "!7") { //Обработка выбора
+        exitProcess(0)
+    }
+    try {
+
+        return inputSt.toLong()
+    } catch (e: NumberFormatException) {
+
+        println("введено некорректное значение.")
+        proceedChoice(input, step, chatSrv) //возврат на повтор.
+    }
+    return 0
 }
 
 
 object ChatService {
     private val chatList: MutableList<DirectMsgChat> = mutableListOf()
+    var currChatID: Long = 0
+    var usrLastMsgCntPar: Int = 5
+    fun getChatListSize(): Int {
+
+        return chatList.size
+    }
 
     data class DirectMsgChat(
         val chatId: Long, //ID собеседника
@@ -78,7 +267,9 @@ object ChatService {
     //Создать чат. Чат создаётся, когда пользователю отправляется первое сообщение.
     fun getMsgId(chatId: Long): Long { //Получаем ID нового сообщения++ / создаём новый чат и возвращаем ID сообщ
         return try {
-            chatList.filter { chat: DirectMsgChat -> chat.chatId == chatId }.last().msgIdLast++
+            val chat = chatList.last { it.chatId.equals(chatId) }
+            chat.msgIdLast++
+            chat.msgIdLast
         } catch (e: NoSuchElementException) {
 
             chatList.add(
@@ -103,16 +294,50 @@ object ChatService {
         }
     }
 
+    fun getLastChat(): DirectMsgChat? { //Получить последний чат из списка
+        return try {
+            chatList.last()
+        } catch (e: NoSuchElementException) {
+            null
+        }
+
+    }
+
+    fun getMsgIDInOnlyOneMsgChat(): Long { // получить ID последнего сообщения если оно единственное в чате
+        return try {
+            val chat = chatList.filter { chat -> chat.chatId.equals(currChatID) }.last()
+            if (chat.messages.size == 1) {
+                chat.messages.last().msgID
+            } else {
+                -1
+            }
+        } catch (e: NoSuchElementException) {
+            -1
+        }
+
+    }
+
     //Получить список чатов
     fun getChats(): String {
         val chats: StringBuilder = java.lang.StringBuilder()
         return if (chatList.isNotEmpty()) {
-            chatList.forEach { chats.append("Чат ${it.chatId}, обновлён: ${getHumanDate(it.updated)} \n") }
+            chatList.forEach {
+                chats.append(
+                    "Чат ${it.chatId}, обновлён: ${getHumanDate(it.updated)} " +
+                            "${
+                                if (it.unreadMsgCntSender > 0) {
+                                    "(${it.unreadMsgCntSender})"
+                                } else {
+                                    ""
+                                }
+                            }\n"
+                )
+            }
             chats.toString()
-        } else "Пока ни одного чата не создано.."
+        } else ""
     }
 
-    private fun getHumanDate(timeInMs: Long): String {
+    private fun getHumanDate(timeInMs: Long): String { // перевод даты в ЧПУ-вид
         val formatter = DateTimeFormatter.ofPattern("dd/MM/yy HH:mm:ss");
         return formatter.format(LocalDateTime.ofInstant(Instant.ofEpochMilli(timeInMs), ZoneId.systemDefault()))
     }
@@ -121,8 +346,8 @@ object ChatService {
     fun getLastChatMessages(): String {
 
         val lastMsgs: StringBuilder = StringBuilder()
-        lastMsgs.append("Информация по последним сообщениям из Ваших чатов: \n")
         return if (chatList.isNotEmpty()) {
+            lastMsgs.append("Последние сообщениям по чатам: \n")
             chatList.forEach {
 
                     chat: DirectMsgChat ->
@@ -130,7 +355,7 @@ object ChatService {
                     if (chat.messages.size <= 0) {
                         "Чат ${chat.chatId}: нет сообщений. \n"
                     } else {
-                        "Чат ${chat.chatId}: ${chat.messages.last().text}. \n"
+                        "Чат ${chat.chatId} : ${chat.messages.last().text}. \n"
                     }
                 )
             }
@@ -149,33 +374,58 @@ object ChatService {
             "Некорректно указаны параметры."
         } else {
             val lastMsgsInChat: StringBuilder = StringBuilder()
-            lastMsgsInChat.append("Информация по последним $Int сообщениям из чата $chatId: \n")
-            val chat = chatList.filter { chat -> chat.chatId == chatId }.last()
-            val chatMsges = chat.messages
-            if (chatMsges.isNotEmpty()) {
-                val relevantMsges = chatMsges.filter { msg -> msg.msgID > (chatMsges.last().chatId - msgCnt) }
-                val unreadRelCnt = relevantMsges.filter { msg -> !msg.opened }.size //непрочитанные
-                if (unreadRelCnt > 0) { //Уменьшаем счетчик непрочитанных в чате
-                    chatList.set(
-                        chatList.indexOf(chat),
-                        chat.copy(unreadMsgCntSender = (chat.unreadMsgCntSender - unreadRelCnt))
-                    )
-                }
-                relevantMsges.forEach {
+            lastMsgsInChat.append("Информация по последним $msgCnt сообщениям из чата $chatId: \n")
+            val chat: DirectMsgChat
+            try {
 
-                        msg ->
-                    lastMsgsInChat.append("Отправлено ${getHumanDate(msg.created)}: ${msg.text}. \n")
-                    if (!msg.opened) {
+                chat = chatList.last { chat1 -> chat1.chatId.equals(chatId) }
+                val chatMsges = chat.messages
+                if (chatMsges.isNotEmpty()) {
+                    val relevantMsges = chatMsges.filter { msg -> msg.msgID > (chatMsges.last().msgID - msgCnt) }
+                    val unreadRelCnt = relevantMsges.filter { msg -> !msg.opened }.size //непрочитанные
+                    if (unreadRelCnt > 0) { //Уменьшаем счетчик непрочитанных в чате
 
-                        chat.messages.set(chat.messages.indexOf(msg), msg.copy(opened = true))
-
+                        val unsMsgDiff = chat.unreadMsgCntSender - unreadRelCnt
+                        chatList.set(
+                            chatList.indexOf(chat),
+                            chat.copy(
+                                unreadMsgCntSender = (if (unsMsgDiff > 0) {
+                                    unsMsgDiff
+                                } else {
+                                    0
+                                })
+                            )
+                        )
                     }
-                }
-                lastMsgsInChat.toString()
+                    relevantMsges.forEach {
 
-            } else {
-                "В чате пока нет сообщений.."
+                            msg ->
+                        lastMsgsInChat.append(
+                            "Отправлено ${getHumanDate(msg.created)}  / ${msg.msgID} / " + if (msg.changed) {
+                                " изм."
+                            } else {
+                                ""
+                            } +
+                                    "\n ${msg.text}. \n"
+                        )
+                        if (!msg.opened) {
+
+                            chat.messages.set(chat.messages.indexOf(msg), msg.copy(opened = true))
+
+                        }
+                    }
+                    lastMsgsInChat.toString()
+
+                } else {
+                    "В чате пока нет сообщений.."
+                }
+
+            } catch (e: NoSuchElementException) {
+
+                "Чат не найден.."
+
             }
+
 
         }
     }
@@ -183,52 +433,67 @@ object ChatService {
     //Удалить чат, т. е. целиком удалить всю переписку.
     fun deleteChat(chatId: Long): Int {
         return try {
-            chatList.removeAt(chatList.indexOf(chatList.last { chat: DirectMsgChat -> chat.chatId == chatId }))
+            chatList.removeAt(chatList.indexOf(chatList.last { chat: DirectMsgChat -> chat.chatId.equals(chatId) }))
+            showGeneralInfoAndMenu(this, 1)
             1
         } catch (e: NoSuchElementException) {
             println("Чат $chatId не найден..")
+            showGeneralInfoAndMenu(this, 1)
             -1
         }
     }
 
     //новое сообщение
-    fun createMsg(chatId: Long, text: String, isSender: Boolean = true) {
+    fun createMsg(chatId: Long, text: String, isSender: Boolean = true, step: Int = 1): Int {
         try {
             if (chatId <= 0 || text.isEmpty()) throw IllegalArgumentException()
         } catch (e: IllegalArgumentException) {
             println("Не указаны получатель или текст сообщения.")
-            return
+            return -1
         }
         val newMsg = Message(
             chatId,
             text
         ) // создаём сообщение, если чата нет, он будет автоматически создан
-        val oldchat = chatList.filter { chat -> chat.chatId == chatId }
-            .last()
-        oldchat.messages.add(newMsg.copy()) // добавляем сообщение в чат.
+        val oldChat = chatList.last { chat -> chat.chatId.equals(chatId) }
+        oldChat.messages.add(newMsg.copy()) // добавляем сообщение в чат.
 
-        if (isSender) {
+        return if (isSender) {
             chatList.set(
-                chatList.indexOf(oldchat),
-                oldchat.copy(unreadMsgCntRecipient = oldchat.unreadMsgCntRecipient + 1)
-            )
-        }else{ //Если сообщение от собеседника
-            chatList.set(
-                chatList.indexOf(oldchat),
-                oldchat.copy(unreadMsgCntSender = oldchat.unreadMsgCntSender + 1)
-            )
+                chatList.indexOf(oldChat),
+                oldChat.copy(
+                    msgIdLast = oldChat.msgIdLast,
+                    unreadMsgCntRecipient = oldChat.unreadMsgCntRecipient + 1,
+                    updated = System.currentTimeMillis()
+                )
 
+            )
+            println(getLastNMessagesInChat(chatId, usrLastMsgCntPar))
+            showMenuAndProceedChoice(this, step)
+            1
+        } else { //Если сообщение от собеседника
+            chatList.set(
+                chatList.indexOf(oldChat),
+                oldChat.copy(
+                    unreadMsgCntSender = oldChat.unreadMsgCntSender + 1,
+                    msgIdLast = oldChat.msgIdLast, updated = System.currentTimeMillis()
+                )
+            )
+            showGeneralInfoAndMenu(this, 1)
+            1
         }
     }
 
 
     //Удалить сообщение.
-    fun deleteMsg(chatId: Long, messageID: Long): Int {
+    fun deleteMsg(chatId: Long, messageID: Long, step: Int): Int {
         return try {
             if (chatId <= 0 || messageID <= 0) throw IllegalArgumentException()
-            val chat = chatList.filter { chat -> chat.chatId == chatId }.last()
-            val msgForRemove = chat.messages.filter { msg -> msg.msgID == messageID }.last()
+            val chat = chatList.last { chat -> chat.chatId.equals(chatId) }
+            val msgForRemove = chat.messages.last { msg -> msg.msgID.equals(messageID) }
             chat.messages.removeAt(chat.messages.indexOf(msgForRemove))
+            println(getLastNMessagesInChat(chatId, usrLastMsgCntPar))
+            showMenuAndProceedChoice(this, step)
             1
         } catch (e: NoSuchElementException) {
             println("Сообщение или чат не найден..")
@@ -243,15 +508,18 @@ object ChatService {
     fun updateMsg(chatId: Long, messageID: Long, newText: String): Int {
         return try {
             if (chatId <= 0 || newText.isEmpty()) throw IllegalArgumentException()
-            val chat = chatList.filter { chat -> chat.chatId == chatId }.last()
-            val oldMsg = chat.messages.filter { msg -> msg.msgID == messageID }.last()
+            val chat = chatList.last { chat -> chat.chatId.equals(chatId) }
+            val oldMsg = chat.messages.last { msg -> msg.msgID.equals(messageID) }
             chat.messages.set(chat.messages.indexOf(oldMsg), oldMsg.copy(changed = true, text = newText))
+            println(getLastNMessagesInChat(chatId, usrLastMsgCntPar))
             1
         } catch (e: NoSuchElementException) {
             println("Сообщение или чат не найден..")
+            showGeneralInfoAndMenu(this, 1)
             -2
         } catch (e: IllegalArgumentException) {
             println("Не указан ID чата/ сообщение слишком короткое..")
+            showGeneralInfoAndMenu(this, 1)
             -1
         }
     }
