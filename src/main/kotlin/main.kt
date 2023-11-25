@@ -240,6 +240,13 @@ object ChatService {
     private val chatList: MutableList<DirectMsgChat> = mutableListOf()
     var currChatID: Long = 0
     var usrLastMsgCntPar: Int = 5
+
+    fun clear() {
+        chatList.clear()
+        currChatID = 0
+        usrLastMsgCntPar = 5
+    }
+
     fun getChatListSize(): Int {
 
         return chatList.size
@@ -374,13 +381,13 @@ object ChatService {
             "Некорректно указаны параметры."
         } else {
             val lastMsgsInChat: StringBuilder = StringBuilder()
-            lastMsgsInChat.append("Информация по последним $msgCnt сообщениям из чата $chatId: \n")
             val chat: DirectMsgChat
             try {
 
                 chat = chatList.last { chat1 -> chat1.chatId.equals(chatId) }
                 val chatMsges = chat.messages
                 if (chatMsges.isNotEmpty()) {
+                    lastMsgsInChat.append("Информация по последним $msgCnt сообщениям из чата $chatId: \n")
                     val relevantMsges = chatMsges.filter { msg -> msg.msgID > (chatMsges.last().msgID - msgCnt) }
                     val unreadRelCnt = relevantMsges.filter { msg -> !msg.opened }.size //непрочитанные
                     if (unreadRelCnt > 0) { //Уменьшаем счетчик непрочитанных в чате
@@ -431,20 +438,20 @@ object ChatService {
     }
 
     //Удалить чат, т. е. целиком удалить всю переписку.
-    fun deleteChat(chatId: Long): Int {
+    fun deleteChat(chatId: Long, isTest: Boolean = false): Int {
         return try {
             chatList.removeAt(chatList.indexOf(chatList.last { chat: DirectMsgChat -> chat.chatId.equals(chatId) }))
-            showGeneralInfoAndMenu(this, 1)
+            if (!isTest) showGeneralInfoAndMenu(this, 1)
             1
         } catch (e: NoSuchElementException) {
             println("Чат $chatId не найден..")
-            showGeneralInfoAndMenu(this, 1)
+            if (!isTest) showGeneralInfoAndMenu(this, 1)
             -1
         }
     }
 
     //новое сообщение
-    fun createMsg(chatId: Long, text: String, isSender: Boolean = true, step: Int = 1): Int {
+    fun createMsg(chatId: Long, text: String, isSender: Boolean = true, step: Int = 1, isTest: Boolean = false): Int {
         try {
             if (chatId <= 0 || text.isEmpty()) throw IllegalArgumentException()
         } catch (e: IllegalArgumentException) {
@@ -469,7 +476,7 @@ object ChatService {
 
             )
             println(getLastNMessagesInChat(chatId, usrLastMsgCntPar))
-            showMenuAndProceedChoice(this, step)
+            if (!isTest) showMenuAndProceedChoice(this, step)
             1
         } else { //Если сообщение от собеседника
             chatList.set(
@@ -479,21 +486,23 @@ object ChatService {
                     msgIdLast = oldChat.msgIdLast, updated = System.currentTimeMillis()
                 )
             )
-            showGeneralInfoAndMenu(this, 1)
+            if (!isTest) showGeneralInfoAndMenu(this, 1)
             1
         }
     }
 
 
     //Удалить сообщение.
-    fun deleteMsg(chatId: Long, messageID: Long, step: Int): Int {
+    fun deleteMsg(chatId: Long, messageID: Long, step: Int, isTest: Boolean = false): Int {
         return try {
             if (chatId <= 0 || messageID <= 0) throw IllegalArgumentException()
             val chat = chatList.last { chat -> chat.chatId.equals(chatId) }
             val msgForRemove = chat.messages.last { msg -> msg.msgID.equals(messageID) }
             chat.messages.removeAt(chat.messages.indexOf(msgForRemove))
             println(getLastNMessagesInChat(chatId, usrLastMsgCntPar))
-            showMenuAndProceedChoice(this, step)
+            if (!isTest) {
+                showMenuAndProceedChoice(this, step)
+            }
             1
         } catch (e: NoSuchElementException) {
             println("Сообщение или чат не найден..")
@@ -505,7 +514,7 @@ object ChatService {
     }
 
     //Отредактировать сообщение
-    fun updateMsg(chatId: Long, messageID: Long, newText: String): Int {
+    fun updateMsg(chatId: Long, messageID: Long, newText: String, isTest: Boolean = false): Int {
         return try {
             if (chatId <= 0 || newText.isEmpty()) throw IllegalArgumentException()
             val chat = chatList.last { chat -> chat.chatId.equals(chatId) }
@@ -515,11 +524,11 @@ object ChatService {
             1
         } catch (e: NoSuchElementException) {
             println("Сообщение или чат не найден..")
-            showGeneralInfoAndMenu(this, 1)
+            if (!isTest) showGeneralInfoAndMenu(this, 1)
             -2
         } catch (e: IllegalArgumentException) {
             println("Не указан ID чата/ сообщение слишком короткое..")
-            showGeneralInfoAndMenu(this, 1)
+            if (!isTest) showGeneralInfoAndMenu(this, 1)
             -1
         }
     }
