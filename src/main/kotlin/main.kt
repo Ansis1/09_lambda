@@ -524,5 +524,3 @@ object ChatService {
         }
     }
 }
-
-
