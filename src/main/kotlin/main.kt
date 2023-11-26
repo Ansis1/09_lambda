@@ -83,13 +83,9 @@ fun proceedChoice(input: String, step: Int, chatSrv: ChatService) {
 
             if (step != 2) {
                 chatSrv.currChatID = getChatIdFromUser(scanner, input, step, chatSrv)
-                val txtMsg = getMessageTextFromUser(scanner)
-                chatSrv.createMsg(chatSrv.currChatID, txtMsg, step = 2)
-
-            } else {
-                val txtMsg = getMessageTextFromUser(scanner)
-                chatSrv.createMsg(chatSrv.currChatID, txtMsg, step = 2)
             }
+            val txtMsg = getMessageTextFromUser(scanner)
+            chatSrv.createMsg(chatSrv.currChatID, txtMsg, step = 2)
 
         }
 
@@ -110,13 +106,10 @@ fun proceedChoice(input: String, step: Int, chatSrv: ChatService) {
 
                     if (inputInt > 0) {
                         chatSrv.usrLastMsgCntPar = inputInt
-                        println(chatSrv.getLastNMessagesInChat(chatSrv.currChatID, inputInt))
-                        println()
+                        println(chatSrv.getLastNMessagesInChat(chatSrv.currChatID, inputInt) + "\n")
                         showMenuAndProceedChoice(chatSrv, 2)
                     } else {
-
                         proceedChoice(input, step, chatSrv) //возврат на повтор.
-
                     }
                 } catch (e: NumberFormatException) {
 
@@ -153,16 +146,10 @@ fun proceedChoice(input: String, step: Int, chatSrv: ChatService) {
         } // del chat or del this chat
         "4" -> {
 
-            if (step != 2) {
-                showGeneralInfoAndMenu(chatSrv, 1)
-            } else {
+            if (step == 2) {
                 println(chatSrv.getLastNMessagesInChat(chatSrv.currChatID, chatSrv.usrLastMsgCntPar))
-                showMenuAndProceedChoice(chatSrv, step)
-
-
             }
-
-
+            showMenuAndProceedChoice(chatSrv, step)
         } // upd main page / get last msges in chat
         "5" -> {
             chatSrv.currChatID = 0
@@ -178,7 +165,6 @@ fun proceedChoice(input: String, step: Int, chatSrv: ChatService) {
         "8" -> {
 
             var msgId = chatSrv.getMsgIDInOnlyOneMsgChat();
-
             if (msgId < 0) {
                 msgId = getMsgIdFromUser(scanner, input, step, chatSrv)
             }
@@ -206,15 +192,14 @@ fun getChatIdFromUser(scanner: Scanner, input: String, step: Int, chatSrv: ChatS
     if (inputSt == "!7") { //Обработка выбора
         exitProcess(0)
     }
-    try {
-
-        return inputSt.toLong()
+    return try {
+        inputSt.toLong()
     } catch (e: NumberFormatException) {
-
         println("введено некорректное значение.")
         proceedChoice(input, step, chatSrv) //возврат на повтор.
+        0
     }
-    return 0
+
 }
 
 fun getMsgIdFromUser(scanner: Scanner, input: String, step: Int, chatSrv: ChatService): Long {
@@ -224,15 +209,14 @@ fun getMsgIdFromUser(scanner: Scanner, input: String, step: Int, chatSrv: ChatSe
     if (inputSt == "!7") { //Обработка выбора
         exitProcess(0)
     }
-    try {
-
-        return inputSt.toLong()
+    return try {
+        inputSt.toLong()
     } catch (e: NumberFormatException) {
 
         println("введено некорректное значение.")
         proceedChoice(input, step, chatSrv) //возврат на повтор.
+        0
     }
-    return 0
 }
 
 
@@ -312,12 +296,7 @@ object ChatService {
 
     fun getMsgIDInOnlyOneMsgChat(): Long { // получить ID последнего сообщения если оно единственное в чате
         return try {
-            val chat = chatList.filter { chat -> chat.chatId.equals(currChatID) }.last()
-            if (chat.messages.size == 1) {
-                chat.messages.last().msgID
-            } else {
-                -1
-            }
+            chatList.last { chat -> chat.chatId.equals(currChatID) && chat.messages.size == 1 }.msgIdLast
         } catch (e: NoSuchElementException) {
             -1
         }
@@ -356,7 +335,6 @@ object ChatService {
         return if (chatList.isNotEmpty()) {
             lastMsgs.append("Последние сообщениям по чатам: \n")
             chatList.forEach {
-
                     chat: DirectMsgChat ->
                 lastMsgs.append(
                     if (chat.messages.size <= 0) {
@@ -383,7 +361,6 @@ object ChatService {
             val lastMsgsInChat: StringBuilder = StringBuilder()
             val chat: DirectMsgChat
             try {
-
                 chat = chatList.last { chat1 -> chat1.chatId.equals(chatId) }
                 val chatMsges = chat.messages
                 if (chatMsges.isNotEmpty()) {
@@ -405,7 +382,6 @@ object ChatService {
                         )
                     }
                     relevantMsges.forEach {
-
                             msg ->
                         lastMsgsInChat.append(
                             "Отправлено ${getHumanDate(msg.created)}  / ${msg.msgID} / " + if (msg.changed) {
