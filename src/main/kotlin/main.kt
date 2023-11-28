@@ -334,8 +334,7 @@ object ChatService {
         val lastMsgs: StringBuilder = StringBuilder()
         return if (chatList.isNotEmpty()) {
             lastMsgs.append("Последние сообщениям по чатам: \n")
-            chatList.forEach {
-                    chat: DirectMsgChat ->
+            chatList.forEach { chat: DirectMsgChat ->
                 lastMsgs.append(
                     if (chat.messages.size <= 0) {
                         "Чат ${chat.chatId}: нет сообщений. \n"
@@ -358,58 +357,44 @@ object ChatService {
         return if (chatId <= 0 || msgCnt <= 0) {
             "Некорректно указаны параметры."
         } else {
-            val lastMsgsInChat: StringBuilder = StringBuilder()
-            val chat: DirectMsgChat
-            try {
-                chat = chatList.last { chat1 -> chat1.chatId.equals(chatId) }
-                val chatMsges = chat.messages
-                if (chatMsges.isNotEmpty()) {
-                    lastMsgsInChat.append("Информация по последним $msgCnt сообщениям из чата $chatId: \n")
-                    val relevantMsges = chatMsges.filter { msg -> msg.msgID > (chatMsges.last().msgID - msgCnt) }
-                    val unreadRelCnt = relevantMsges.filter { msg -> !msg.opened }.size //непрочитанные
-                    if (unreadRelCnt > 0) { //Уменьшаем счетчик непрочитанных в чате
+            chatList.find { chat1 -> chat1.chatId.equals(chatId) }?.let { directMsgChat ->
+                val result = directMsgChat.messages
+                    .asReversed() //список в обратном порядке
+                    .asSequence() // в последовательность
+                    .take(msgCnt) // берём количество сообщений, если в списке меньше, возьмет по наличию
+                    .toMutableList()
+                    //.onEach { it.opened = true} //если бы поле было var, то можно было бы сделать так
+                    .map { message -> message.copy(opened = true) } //помечаем прочитанными
 
-                        val unsMsgDiff = chat.unreadMsgCntSender - unreadRelCnt
-                        chatList.set(
-                            chatList.indexOf(chat),
-                            chat.copy(
-                                unreadMsgCntSender = (if (unsMsgDiff > 0) {
-                                    unsMsgDiff
-                                } else {
-                                    0
-                                })
-                            )
-                        )
+                val idList = result.map { it.msgID } //список id полученных сообщений
+                directMsgChat.messages.forEach { message -> // обходим
+                    if (idList.contains(message.msgID)) {
+                        directMsgChat.messages[directMsgChat.messages.indexOf(message)] = result.find {
+                            it.msgID.equals(message.msgID) // заменяем объект исходного сообщения измененным
+                        } ?: return "Сообщение просто пропало.." //Можно заменить элвис на !!, так как мы уверены,
+                        // что элемент точно есть, но если приложение было бы многопоточным, то могли бы возникнуть проблемы
                     }
-                    relevantMsges.forEach {
-                            msg ->
-                        lastMsgsInChat.append(
-                            "Отправлено ${getHumanDate(msg.created)}  / ${msg.msgID} / " + if (msg.changed) {
-                                " изм."
-                            } else {
-                                ""
-                            } +
-                                    "\n ${msg.text}. \n"
-                        )
-                        if (!msg.opened) {
-
-                            chat.messages.set(chat.messages.indexOf(msg), msg.copy(opened = true))
-
-                        }
-                    }
-                    lastMsgsInChat.toString()
-
-                } else {
-                    "В чате пока нет сообщений.."
                 }
 
-            } catch (e: NoSuchElementException) {
+                chatList[chatList.indexOf(directMsgChat).takeIf { it != -1 } ?: return "Чат не найден.."] =
+                    directMsgChat.copy(
 
-                "Чат не найден.."
-
-            }
-
-
+                        unreadMsgCntSender = (if (directMsgChat.unreadMsgCntSender - result.size > 0) {
+                            directMsgChat.unreadMsgCntSender - result.size
+                        } else {
+                            0
+                        }) // заменяем объект чата отредактированным за вычетом прочитанных сообщ. из выборки
+                    )
+                "Информация по последним $msgCnt сообщениям из чата $chatId: \n" + (result.map { msg ->
+                    "Отправлено ${getHumanDate(msg.created)}  / ${msg.msgID} / " + if (msg.changed) {
+                        " изм."
+                    } else {
+                        ""
+                    } +
+                            "\n ${msg.text}. \n"
+                }.takeIf { it.isNotEmpty() }?.toString()?.replace("[\\[\\], ]".toRegex(), "")
+                    ?: "В чате пока нет сообщений..")
+            }?.toString() ?: "Чат не найден.."
         }
     }
 
